@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include<time.h>
+#include<stdlib.h>
+#include <windows.h>
 
 void swap(int *a, int *b)
 {
@@ -60,20 +63,80 @@ void printArray(int arr[], int n)
     printf("\n");
 }
 
-int main()
+int isPowerOfTwo(int n)
 {
-    //int arr[] = {8, 7, 6, 5, 4, 3, 2, 1};
-    //int arr[] = {10, 3, 7, 1, 9, 2, 8, 4};
-    int arr[] = {5, 1, 8, 3, 2, 7, 4, 6};
-    int n = 8;
+    return n > 0 && (n & (n - 1)) == 0;
+}
 
-    printf("Original array:\n");
-    printArray(arr, n);
+int main(int argc, char *argv[])
+{
+    
+
+    int i;
+    if (argc != 2)
+    {
+        printf("Usage: serial_bitonic.exe <array_size>\n");
+        return 1;
+    }
+
+    int n = atoi(argv[1]);
+    
+    if (!isPowerOfTwo(n))
+    {
+        printf("Array size must be a power of 2.\n");
+        return 1;
+    }
+
+    if (n <= 0)
+    {
+        printf("Array size must be positive.\n");
+        return 1;
+    }
+
+    int *arr = malloc(n * sizeof(int));
+
+    if (arr == NULL)
+    {
+        printf("Memory allocation failed.\n");
+        return 1;
+    }
+
+    srand(42);
+
+    for (i = 0; i < n; i++)
+    {
+        arr[i] = rand() % 100000;
+    }
+
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER start;
+    LARGE_INTEGER end;
+
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&start);
 
     bitonicSort(arr, 0, n, 1);
 
-    printf("\nSorted array:\n");
-    printArray(arr, n);
+    QueryPerformanceCounter(&end);
+
+    double cpuTime =(double)(end.QuadPart - start.QuadPart) /frequency.QuadPart;
+    
+    int sorted = 1;
+
+    for (i = 1; i < n; i++)
+    {
+        if (arr[i - 1] > arr[i])
+        {
+            sorted = 0;
+            break;
+        }
+    }
+
+    printf("Array Size: %d\n", n);
+    printf("Sorted Correctly: %s\n", sorted ? "YES" : "NO");
+    printf("CPU Bitonic Sort Time: %.6f seconds\n", cpuTime);
+
+    free(arr);
 
     return 0;
 }
