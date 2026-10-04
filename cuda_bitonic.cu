@@ -37,8 +37,16 @@ __global__ void bitonicSortKernel(int *arr, int j, int k, int n)
 
 int main()
 {
-    int h_arr[] = {8, 7, 6, 5, 4, 3, 2, 1};
-    int n = 8;
+    int n = 1024;
+
+    int *h_arr = (int *)malloc(n * sizeof(int));
+
+    srand(42);
+
+    for (int i = 0; i < n; i++)
+    {
+        h_arr[i] = rand() % 100000;
+    }
 
     int *d_arr;
     cudaError_t error;
@@ -152,14 +160,19 @@ int main()
     }
 
     // Print result
-    printf("Sorted array:\n");
+    int sorted = 1;
 
-    for (int i = 0; i < n; i++)
+    for (int i = 1; i < n; i++)
     {
-        printf("%d ", h_arr[i]);
+        if (h_arr[i - 1] > h_arr[i])
+        {
+            sorted = 0;
+            break;
+        }
     }
 
-    printf("\n");
+    printf("Array Size: %d\n", n);
+    printf("Sorted Correctly: %s\n", sorted ? "YES" : "NO");
 
     // Free GPU memory
     cudaFree(d_arr);
