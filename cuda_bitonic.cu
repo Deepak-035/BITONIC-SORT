@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <cuda_runtime.h>
 
 __global__ void bitonicSortKernel(int *arr, int j, int k, int n)
@@ -35,11 +36,22 @@ __global__ void bitonicSortKernel(int *arr, int j, int k, int n)
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     int n = 1024;
 
+    if (argc == 2)
+    {
+        n = atoi(argv[1]);
+    }
+
     int *h_arr = (int *)malloc(n * sizeof(int));
+
+    if (h_arr == NULL)
+    {
+        printf("Memory allocation failed.\n");
+        return 1;
+    }
 
     srand(42);
 
@@ -58,6 +70,8 @@ int main()
     {
         printf("cudaMalloc Error: %s\n",
                cudaGetErrorString(error));
+
+        free(h_arr);
         return 1;
     }
 
@@ -75,16 +89,26 @@ int main()
                cudaGetErrorString(error));
 
         cudaFree(d_arr);
+        free(h_arr);
         return 1;
     }
 
     // CUDA configuration
     int threadsPerBlock = 256;
+
     int blocksPerGrid =
         (n + threadsPerBlock - 1) / threadsPerBlock;
 
+    // CUDA timing events
+    cudaEvent_t start, stop;
+
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+
     // Bitonic Sort
-   /* for (int k = 2; k <= n; k *= 2)
+    for (int k = 2; k <= n; k *= 2)
     {
         for (int j = k / 2; j > 0; j /= 2)
         {
@@ -95,64 +119,45 @@ int main()
                 n
             );
 
+            error = cudaGetLastError();
+
+            if (error != cudaSuccess)
+            {
+                printf("Kernel Launch Error: %s\n",
+                       cudaGetErrorString(error));
+
+                cudaFree(d_arr);
+                free(h_arr);
+                return 1;
+            }
+
             error = cudaDeviceSynchronize();
 
             if (error != cudaSuccess)
             {
-                printf("CUDA Kernel Error: %s\n",
+                printf("Kernel Execution Error: %s\n",
                        cudaGetErrorString(error));
 
                 cudaFree(d_arr);
+                free(h_arr);
                 return 1;
             }
         }
-    }*/
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    cudaEventRecord(start);
-    for (int k = 2; k <= n; k *= 2)
-    {
-    for (int j = k / 2; j > 0; j /= 2)
-    {
-        bitonicSortKernel<<<blocksPerGrid, threadsPerBlock>>>(
-            d_arr,
-            j,
-            k,
-            n
-        );
-
-        error = cudaGetLastError();
-
-        if (error != cudaSuccess)
-        {
-            printf("Kernel Launch Error: %s\n",
-                   cudaGetErrorString(error));
-
-            cudaFree(d_arr);
-            return 1;
-        }
-
-        error = cudaDeviceSynchronize();
-
-        if (error != cudaSuccess)
-        {
-            printf("Kernel Execution Error: %s\n",
-                   cudaGetErrorString(error));
-
-            cudaFree(d_arr);
-            return 1;
-        }
     }
-    }
+
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
     float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
 
-    printf("CUDA Kernel Time: %.6f seconds\n", milliseconds / 1000.0);  
+    cudaEventElapsedTime(
+        &milliseconds,
+        start,
+        stop
+    );
+
+    printf("CUDA Kernel Time: %.6f seconds\n",
+           milliseconds / 1000.0);
 
     // Copy sorted array from GPU to CPU
     error = cudaMemcpy(
@@ -168,10 +173,11 @@ int main()
                cudaGetErrorString(error));
 
         cudaFree(d_arr);
+        free(h_arr);
         return 1;
     }
 
-    // Print result
+    // Check whether array is sorted correctly
     int sorted = 1;
 
     for (int i = 1; i < n; i++)
@@ -184,10 +190,15 @@ int main()
     }
 
     printf("Array Size: %d\n", n);
-    printf("Sorted Correctly: %s\n", sorted ? "YES" : "NO");
+    printf("Sorted Correctly: %s\n",
+           sorted ? "YES" : "NO");
 
-    // Free GPU memory
+    // Free memory
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+
     cudaFree(d_arr);
+    free(h_arr);
 
     return 0;
 }
