@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
+#include <windows.h>
 
 __global__ void bitonicSortKernel(int *arr, int j, int k, int n)
 {
@@ -63,8 +64,24 @@ int main(int argc, char *argv[])
     int *d_arr;
     cudaError_t error;
 
+    // Total GPU timing variables
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER totalStart;
+    LARGE_INTEGER totalEnd;
+
+    QueryPerformanceFrequency(&frequency);
+
+    // Initialize CUDA context before timing
+    cudaFree(0);
+
+    // Start total GPU timing
+    QueryPerformanceCounter(&totalStart);
+
     // Allocate memory on GPU
-    error = cudaMalloc((void **)&d_arr, n * sizeof(int));
+    error = cudaMalloc(
+        (void **)&d_arr,
+        n * sizeof(int)
+    );
 
     if (error != cudaSuccess)
     {
@@ -99,8 +116,9 @@ int main(int argc, char *argv[])
     int blocksPerGrid =
         (n + threadsPerBlock - 1) / threadsPerBlock;
 
-    // CUDA timing events
-    cudaEvent_t start, stop;
+    // CUDA kernel timing
+    cudaEvent_t start;
+    cudaEvent_t stop;
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -112,7 +130,10 @@ int main(int argc, char *argv[])
     {
         for (int j = k / 2; j > 0; j /= 2)
         {
-            bitonicSortKernel<<<blocksPerGrid, threadsPerBlock>>>(
+            bitonicSortKernel<<<
+                blocksPerGrid,
+                threadsPerBlock
+            >>>(
                 d_arr,
                 j,
                 k,
@@ -177,6 +198,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Stop total GPU timing
+    QueryPerformanceCounter(&totalEnd);
+
+    double totalGpuTime =
+        (double)(totalEnd.QuadPart - totalStart.QuadPart) /
+        frequency.QuadPart;
+
+    printf("Total GPU Time: %.6f seconds\n",
+           totalGpuTime);
+
     // Check whether array is sorted correctly
     int sorted = 1;
 
@@ -190,10 +221,11 @@ int main(int argc, char *argv[])
     }
 
     printf("Array Size: %d\n", n);
+
     printf("Sorted Correctly: %s\n",
            sorted ? "YES" : "NO");
 
-    // Free memory
+    // Free resources
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
