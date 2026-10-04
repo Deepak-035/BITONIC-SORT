@@ -107,8 +107,13 @@ int main()
             }
         }
     }*/
-   for (int k = 2; k <= n; k *= 2)
-{
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+    for (int k = 2; k <= n; k *= 2)
+    {
     for (int j = k / 2; j > 0; j /= 2)
     {
         bitonicSortKernel<<<blocksPerGrid, threadsPerBlock>>>(
@@ -140,7 +145,14 @@ int main()
             return 1;
         }
     }
-}
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    printf("CUDA Kernel Time: %.6f seconds\n", milliseconds / 1000.0);  
 
     // Copy sorted array from GPU to CPU
     error = cudaMemcpy(
